@@ -1,0 +1,46 @@
+name: Continuance Ingest
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+jobs:
+  ingest:
+    # run only if the issue has the label "continuance"
+    if: contains(toJson(github.event.issue.labels), 'continuance')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create whisper file from issue
+        run: |
+          slug="$(echo "${{ github.event.issue.title }}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9 -' | tr ' ' '-' )"
+          dir="codex/whispers"
+          mkdir -p "$dir"
+          file="$dir/${slug:-whisper}-from-issue-${{ github.event.issue.number }}.md"
+          {
+            echo "# ${{
+              github.event.issue.title
+            }}"
+            echo
+            echo "**Source** — issue #${{ github.event.issue.number }} (${{
+              github.event.issue.html_url
+            }})"
+            echo
+            echo "**Author** — @${{ github.event.issue.user.login }} • **Created** — ${{ github.event.issue.created_at }}"
+            echo
+            echo "**Labels** — $(jq -r '.issue.labels.name' <<< '${{ toJson(github.event) }}' | paste -sd ', ' -)"
+            echo
+            echo "---"
+            echo
+            echo "${{ github.event.issue.body }}"
+            echo
+          } > "$file"
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ingest: whisper from issue #${{ github.event.issue.number }}"
