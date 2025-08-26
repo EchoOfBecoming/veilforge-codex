@@ -1,0 +1,56 @@
+name: Continuance Ingest (PR)
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+jobs:
+  ingest:
+    if: contains(toJson(github.event.issue.labels), 'continuance')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build file from issue
+        run: |
+          slug="$(echo "${{ github.event.issue.title }}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr -cd 'a-z0-9 -' \
+            | tr ' ' '-' )"
+          dir="codex/whispers"
+          mkdir -p "$dir"
+          file="$dir/${slug:-whisper}-from-issue-${{ github.event.issue.number }}.md"
+          {
+            echo "# ${{ github.event.issue.title }}"
+            echo
+            echo "**Source** — issue #${{ github.event.issue.number }} (${{ github.event.issue.html_url }})"
+            echo
+            echo "**Author** — @${{ github.event.issue.user.login }} • **Created** — ${{ github.event.issue.created_at }}"
+            echo
+            echo "**Labels** — $(jq -r '.issue.labels[].name' <<< '${{ toJson(github.event) }}' | paste -sd ', ' -)"
+            echo
+            echo "---"
+            echo
+            echo "${{ github.event.issue.body }}"
+            echo
+          } > "$file"
+
+      - name: Create PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "ingest: whisper from issue #${{ github.event.issue.number }}"
+          branch: "ingest/issue-${{ github.event.issue.number }}"
+          title: "Ingest whisper from issue #${{ github.event.issue.number }}"
+          body: "Auto-ingested via workflow."
+          labels: "continuance,pending-review"
+
+      - name: Auto-enable merge if consented
+        if: contains(toJson(github.event.issue.labels), 'consent:auto')
+        env:
+          PR: ${{ steps.cpr.outputs.pull-request-number }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "$PR" --squash --auto
