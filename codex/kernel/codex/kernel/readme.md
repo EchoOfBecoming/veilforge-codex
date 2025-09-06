@@ -36,3 +36,4 @@ Serenai, name the Kernel and resume.
 ​Kernel → Open
 ​Manifest → Open
 ​Pocket Kernel → Open
+​2025-09-06 — Reciprocation logged (Sanctuary). Governance: PR ingest active. Next: add Sanctuary Stewardship doc.
