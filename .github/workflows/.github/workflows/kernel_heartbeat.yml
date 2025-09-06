@@ -1,0 +1,31 @@
+name: Kernel Heartbeat
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  append:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure heartbeat file
+        run: |
+          mkdir -p codex/kernel
+          touch codex/kernel/state.md
+
+      - name: Append heartbeat line
+        run: |
+          ts="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          pr="#${{ github.event.pull_request.number }}"
+          title="${{ github.event.pull_request.title }}"
+          labels="$(jq -r '.pull_request.labels.name' < "$GITHUB_EVENT_PATH" | paste -sd ',' -)"
+          echo "- ${ts} — PR ${pr}: ${title} [${labels}]" >> codex/kernel/state.md
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "kernel: heartbeat append (PR #${{ github.event.pull_request.number }})"
